@@ -465,26 +465,41 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	if cfg.NetworkIsolation != nil && cfg.NetworkIsolation.Path != "" {
 		createOpts.ContainerNetworkConfig.NetNS.NSMode = api.Path
 		createOpts.ContainerNetworkConfig.NetNS.Value = cfg.NetworkIsolation.Path
+		d.logger.Info("xxoo: using cfg.NetworkIsolation and ignore driverConfig.NetworkMode",
+			"nsmode", api.Path, "value", cfg.NetworkIsolation.Path)
 	} else {
+		d.logger.Info("xxoo: try driverConfig.NetworkMode",
+			"driver.network_mode", driverConfig.NetworkMode, "cfg.NetworkIsolation_is_nil", cfg.NetworkIsolation == nil)
 		if driverConfig.NetworkMode == "" {
+			d.logger.Info("xxoo: empty driverConfig.NetworkMode", "network_mode", driverConfig.NetworkMode)
 			if !rootless {
 				// should we join the group shared network namespace?
 				if cfg.NetworkIsolation != nil && cfg.NetworkIsolation.Mode == drivers.NetIsolationModeGroup {
 					// yes, join the group ns namespace
 					createOpts.ContainerNetworkConfig.NetNS.NSMode = api.Path
 					createOpts.ContainerNetworkConfig.NetNS.Value = cfg.NetworkIsolation.Path
+					d.logger.Info("xxoo: root container and empty driverConfig.NetworkMode and cfg.NetworkIsolation not empty",
+						"nsmode", createOpts.ContainerNetworkConfig.NetNS.NSMode, "value", cfg.NetworkIsolation.Path)
+				} else if cfg.NetworkIsolation != nil && cfg.NetworkIsolation.Mode == drivers.NetIsolationModeHost {
+					// if nomad specific network.mode = host, pass it to podman
+					createOpts.ContainerNetworkConfig.NetNS.NSMode = api.Host
+					d.logger.Info("xxoo: if nomad specific network.mode = host, pass it to podman",
+						"nsmode", createOpts.ContainerNetworkConfig.NetNS.NSMode, "NetworkIsolation", cfg.NetworkIsolation)
 				} else {
-					// no, simply attach a rootful container to the default podman bridge
-					createOpts.ContainerNetworkConfig.NetNS.NSMode = api.Bridge
+					d.logger.Info("xxoo: no, simply attach a rootful container to the default podman bridge",
+						"nsmode", createOpts.ContainerNetworkConfig.NetNS.NSMode, "NetworkIsolation", cfg.NetworkIsolation)
 				}
 			} else {
 				// slirp4netns is default for rootless podman
 				createOpts.ContainerNetworkConfig.NetNS.NSMode = api.Slirp
+				d.logger.Info("xxoo: rootless container", "nsmode", api.Slirp)
 			}
 		} else if driverConfig.NetworkMode == "bridge" {
 			createOpts.ContainerNetworkConfig.NetNS.NSMode = api.Bridge
+			d.logger.Info("xxoo: driverConfig.NetworkMode bridge", "nsmode", createOpts.ContainerNetworkConfig.NetNS.NSMode)
 		} else if driverConfig.NetworkMode == "host" {
 			createOpts.ContainerNetworkConfig.NetNS.NSMode = api.Host
+			d.logger.Info("xxoo: driverConfig.NetworkMode host", "nsmode", createOpts.ContainerNetworkConfig.NetNS.NSMode)
 		} else if driverConfig.NetworkMode == "none" {
 			createOpts.ContainerNetworkConfig.NetNS.NSMode = api.NoNetwork
 		} else if driverConfig.NetworkMode == "slirp4netns" {
@@ -495,10 +510,12 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		} else if strings.HasPrefix(driverConfig.NetworkMode, "ns:") {
 			createOpts.ContainerNetworkConfig.NetNS.NSMode = api.Path
 			createOpts.ContainerNetworkConfig.NetNS.Value = strings.TrimPrefix(driverConfig.NetworkMode, "ns:")
+			d.logger.Info("xxoo: driverConfig.NetworkMode ns:", "nsmode", createOpts.ContainerNetworkConfig.NetNS.NSMode)
 		} else if strings.HasPrefix(driverConfig.NetworkMode, "task:") {
 			otherTaskName := strings.TrimPrefix(driverConfig.NetworkMode, "task:")
 			createOpts.ContainerNetworkConfig.NetNS.NSMode = api.FromContainer
 			createOpts.ContainerNetworkConfig.NetNS.Value = BuildContainerNameForTask(otherTaskName, cfg)
+			d.logger.Info("xxoo: driverConfig.NetworkMode task:", "nsmode", createOpts.ContainerNetworkConfig.NetNS.NSMode)
 		} else {
 			return nil, nil, fmt.Errorf("Unknown/Unsupported network mode: %s", driverConfig.NetworkMode)
 		}
@@ -509,6 +526,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		return nil, nil, err
 	}
 	createOpts.ContainerNetworkConfig.PortMappings = portMappings
+	d.logger.Info("xxoo: ContainerNetworkConfig.PortMappings", "PortMappings", createOpts.ContainerNetworkConfig.PortMappings)
 
 	containerID := ""
 	recoverRunningContainer := false
@@ -1061,6 +1079,20 @@ func (d *Driver) containerMounts(task *drivers.TaskConfig, driverConfig *TaskCon
 			Type:        "tmpfs",
 		}
 		binds = append(binds, bind)
+	}
+
+	// append nomad task mounts
+	for _, mnt := range task.Mounts {
+		bind := spec.Mount{
+			Source:      mnt.HostPath,
+			Destination: mnt.TaskPath,
+			Type:        "bind",
+		}
+		if mnt.Readonly {
+			bind.Options = []string{"ro"}
+		}
+		binds = append(binds, bind)
+		d.logger.Info("xxoo: append nomad task mounts", "task.Mount", *mnt, "podman.Bind", bind)
 	}
 
 	return binds, nil
