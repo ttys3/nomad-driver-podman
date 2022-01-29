@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/nomad-driver-podman/version"
 	"io"
 	"net"
 	"net/http"
@@ -76,6 +77,7 @@ func NewClient(logger hclog.Logger, config ClientConfig) *API {
 }
 
 func (c *API) Do(req *http.Request) (*http.Response, error) {
+	req.Header.Set("User-Agent", fmt.Sprintf("nomad-driver-podman/%s", version.Version))
 	res, err := c.httpClient.Do(req)
 	return res, err
 }
