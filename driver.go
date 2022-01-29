@@ -454,12 +454,21 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		for _, strdns := range cfg.DNS.Servers {
 			ipdns := net.ParseIP(strdns)
 			if ipdns == nil {
-				return nil, nil, fmt.Errorf("Invald dns server address")
+				return nil, nil, fmt.Errorf("Invald dns server address, dns=%v", strdns)
 			}
 			createOpts.ContainerNetworkConfig.DNSServers = append(createOpts.ContainerNetworkConfig.DNSServers, ipdns)
 		}
 		createOpts.ContainerNetworkConfig.DNSSearch = append(createOpts.ContainerNetworkConfig.DNSSearch, cfg.DNS.Searches...)
 		createOpts.ContainerNetworkConfig.DNSOptions = append(createOpts.ContainerNetworkConfig.DNSOptions, cfg.DNS.Options...)
+	} else if len(d.config.DNSServers) > 0 {
+		// no task DNS specific, try load default DNS from plugin config
+		for _, strdns := range d.config.DNSServers {
+			ipdns := net.ParseIP(strdns)
+			if ipdns == nil {
+				return nil, nil, fmt.Errorf("Invalid dns server address from plugin config, dns=%v", strdns)
+			}
+			createOpts.ContainerNetworkConfig.DNSServers = append(createOpts.ContainerNetworkConfig.DNSServers, ipdns)
+		}
 	}
 	// Configure network
 	if cfg.NetworkIsolation != nil && cfg.NetworkIsolation.Path != "" {
@@ -707,7 +716,7 @@ func (d *Driver) createImage(image string, auth *AuthConfig, forcePull bool, cfg
 			archiveData := imageRef.StringWithinTransport()
 			path := strings.Split(archiveData, ":")[0]
 			d.logger.Debug("Load image archive", "path", path)
-			//nolint // ignore returned error, can't react in a good way
+			// nolint // ignore returned error, can't react in a good way
 			d.eventer.EmitEvent(&drivers.TaskEvent{
 				TaskID:    cfg.ID,
 				TaskName:  cfg.Name,
@@ -734,7 +743,7 @@ func (d *Driver) createImage(image string, auth *AuthConfig, forcePull bool, cfg
 	}
 
 	d.logger.Info("Pulling image", "image", imageName)
-	//nolint // ignore returned error, can't react in a good way
+	// nolint // ignore returned error, can't react in a good way
 	d.eventer.EmitEvent(&drivers.TaskEvent{
 		TaskID:    cfg.ID,
 		TaskName:  cfg.Name,
