@@ -1,19 +1,22 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/hashicorp/nomad-driver-podman/version"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/hashicorp/go-hclog"
+	"github.com/gofrs/uuid"
+	hclog "github.com/hashicorp/go-hclog"
 )
 
 type API struct {
@@ -76,9 +79,31 @@ func NewClient(logger hclog.Logger, config ClientConfig) *API {
 	return ac
 }
 
+func elapsedMilli() func() int64 {
+	start := time.Now()
+	return func() int64 {
+		return time.Since(start).Milliseconds()
+	}
+}
+
 func (c *API) Do(req *http.Request) (*http.Response, error) {
 	req.Header.Set("User-Agent", fmt.Sprintf("nomad-driver-podman/%s", version.Version))
+	elapsed := elapsedMilli()
+	u1 := uuid.Must(uuid.NewV4())
+
+	// Request
+	var reqBody []byte
+	if req.Body != nil { // Read
+		reqBody, _ = ioutil.ReadAll(req.Body)
+	}
+	req.Body = ioutil.NopCloser(bytes.NewBuffer(reqBody)) // Reset
+
+	c.logger.Debug("xxx: begin request", "api_req", fmt.Sprintf("%s %s", req.Method, req.URL.Path), "req_body", string(reqBody), "req_uuid", u1.String())
 	res, err := c.httpClient.Do(req)
+	c.logger.Debug("xxx: end request", "req_cost_ms", elapsed(), "api_req", fmt.Sprintf("%s %s", req.Method, req.URL.Path), "req_uuid", u1.String())
+	if elapsed() > 5000 {
+		c.logger.Warn("xxx: slow request", "req_cost_ms", elapsed(), "api_req", fmt.Sprintf("%s %s", req.Method, req.URL.Path), "req_uuid", u1.String())
+	}
 	return res, err
 }
 
