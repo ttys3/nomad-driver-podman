@@ -13,6 +13,7 @@ replace (
 require (
 	github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e
 	github.com/containers/image/v5 v5.11.1
+	github.com/gofrs/uuid v4.2.0+incompatible
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/hashicorp/nomad v1.0.4-0.20210415141937-ee9bb3cc4f40
 	github.com/hashicorp/nomad/api v0.0.0-20210415141937-ee9bb3cc4f40
