@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/armon/circbuf"
@@ -254,6 +256,7 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 	if handle == nil {
 		return fmt.Errorf("error: handle cannot be nil")
 	}
+	d.logger.Debug("begin RecoverTask")
 
 	if _, ok := d.tasks.Get(handle.Config.ID); ok {
 		return nil
@@ -294,12 +297,28 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 	}
 
 	if inspectData.State.Running {
-		d.logger.Info("Recovered a still running container", "container", inspectData.State.Pid)
+		d.logger.Info("Recovered a still running container", "taskid", handle.Config.ID, "container", taskState.ContainerID, "pid", inspectData.State.Pid)
 		h.procState = drivers.TaskStateRunning
 	} else if inspectData.State.Status == "exited" {
 		// are we allowed to restart a stopped container?
 		if d.config.RecoverStopped {
-			d.logger.Debug("Found a stopped container, try to start it", "container", inspectData.State.Pid)
+			d.logger.Debug("Found a stopped container, try to start it", "taskid", handle.Config.ID, "state", inspectData.State.Status, "container", taskState.ContainerID)
+
+			// h.logStreamer is false after reboot
+			if !d.config.DisableLogCollection {
+				// must start read container log file first if system rebooted, since conmon will wait for the reader until then it can write container log to the fifo named pipe
+				// otherwise podman conmon will stuck for 60s (because this driver limit api call timeout to 60s)
+				h.logger.Debug("begin open container log file for read",
+					"containerID", h.containerID, "task_name", h.taskConfig.Name, "job_name", h.taskConfig.JobName, "job_id", h.taskConfig.JobID)
+				// // open the file read-only, but do nothing
+				stdout, err := os.OpenFile(h.taskConfig.StdoutPath, os.O_RDONLY|syscall.O_NONBLOCK, 0600)
+				if err != nil {
+					h.logger.Warn("Unable to open stdout fifo", "error", err)
+					h.procState = drivers.TaskStateUnknown
+				}
+				defer stdout.Close()
+			}
+
 			if err = d.podman.ContainerStart(d.ctx, inspectData.ID); err != nil {
 				d.logger.Warn("Recovery restart failed", "task", handle.Config.ID, "container", taskState.ContainerID, "error", err)
 			} else {
@@ -308,7 +327,7 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 			}
 		} else {
 			// no, let's cleanup here to prepare for a StartTask()
-			d.logger.Debug("Found a stopped container, removing it", "container", inspectData.ID)
+			d.logger.Debug("Found a stopped container, removing it", "state", inspectData.State.Status, "container", inspectData.ID)
 			if err = d.podman.ContainerDelete(d.ctx, inspectData.ID, true, true); err != nil {
 				d.logger.Warn("Recovery cleanup failed", "task", handle.Config.ID, "container", inspectData.ID)
 			}
