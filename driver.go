@@ -443,6 +443,13 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	}
 	createOpts.ContainerResourceConfig.ResourceLimits.Memory.Reservation = soft
 	createOpts.ContainerResourceConfig.ResourceLimits.Memory.Limit = hard
+	// memory.swap must be set, otherwise
+	// `/sys/fs/cgroup/machine.slice/libpod-xxxxxxx.scope/container/memory.swap.max` will always be `max`,
+	// and the container nerver got killed by OOM killer
+	// see logic for podman cli https://github.com/containers/podman/blob/956664f65b5ebcc07a47c4d03c663c32733ed1ad/pkg/specgenutil/specgen.go#L133-L145
+	// `/libpod/containers/create` will not autl set swap = limit *2, but the compat api `/containers/create` will do
+	swapLimit := *hard * 2
+	createOpts.ContainerResourceConfig.ResourceLimits.Memory.Swap = &swapLimit
 
 	if driverConfig.MemorySwap != "" {
 		swap, err := memoryInBytes(driverConfig.MemorySwap)
