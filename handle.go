@@ -113,7 +113,7 @@ func (h *TaskHandle) runStatsEmitter(ctx context.Context, statsChannel chan *dri
 		h.stateLock.Lock()
 		t := time.Now()
 
-		//FIXME implement cpu stats correctly
+		// FIXME implement cpu stats correctly
 		totalPercent := h.totalCPUStats.Percent(float64(h.containerStats.CPUStats.CPUUsage.TotalUsage))
 		cs := &drivers.CpuStats{
 			SystemMode: h.systemCPUStats.Percent(float64(h.containerStats.CPUStats.CPUUsage.UsageInKernelmode)),
@@ -144,7 +144,7 @@ func (h *TaskHandle) runStatsEmitter(ctx context.Context, statsChannel chan *dri
 	}
 }
 func (h *TaskHandle) runLogStreamer(ctx context.Context) {
-
+	h.logger.Debug("begin runLogStreamer", "containerID", h.containerID, "task_name", h.taskConfig.Name, "job_name", h.taskConfig.JobName, "job_id", h.taskConfig.JobID)
 	stdout, err := os.OpenFile(h.taskConfig.StdoutPath, os.O_WRONLY|syscall.O_NONBLOCK, 0600)
 	if err != nil {
 		h.logger.Warn("Unable to open stdout fifo", "error", err)
