@@ -231,7 +231,27 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 		attrs["driver.podman"] = pstructs.NewBoolAttribute(true)
 		attrs["driver.podman.version"] = pstructs.NewStringAttribute(info.Version.Version)
 		attrs["driver.podman.rootless"] = pstructs.NewBoolAttribute(info.Host.Security.Rootless)
+		attrs["driver.podman.selinuxEnabled"] = pstructs.NewBoolAttribute(info.Host.Security.SELinuxEnabled)
 		attrs["driver.podman.cgroupVersion"] = pstructs.NewStringAttribute(info.Host.CGroupsVersion)
+
+		attrs["driver.podman.ociRuntimeName"] = pstructs.NewStringAttribute(info.Host.OCIRuntime.Name)
+		attrs["driver.podman.ociRuntimeVersion"] = pstructs.NewStringAttribute(info.Host.OCIRuntime.Version)
+
+		attrs["driver.podman.graphDriverName"] = pstructs.NewStringAttribute(info.Store.GraphDriverName)
+		attrs["driver.podman.graphRoot"] = pstructs.NewStringAttribute(info.Store.GraphRoot)
+		// github.com/containers/storage/drivers/overlay/overlay.go
+		// {"Backing Filesystem", backingFs},
+		// {"Supports d_type", strconv.FormatBool(d.supportsDType)},
+		// {"Native Overlay Diff", strconv.FormatBool(!d.useNaiveDiff())},
+		// {"Using metacopy", strconv.FormatBool(d.usingMetacopy)},
+		if info.Store.GraphDriverName == "overlay" {
+			for k, v := range info.Store.GraphStatus {
+				k = strings.ReplaceAll(k, " ", "_")
+				key := fmt.Sprintf("driver.podman.graphStatus.%s", k)
+				attrs[key] = pstructs.NewStringAttribute(v)
+			}
+		}
+
 		if d.systemInfo.Version.Version == "" {
 			// keep first received systemInfo in driver struct
 			// it is used to toggle cgroup v1/v2, rootless/rootful behavior

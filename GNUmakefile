@@ -6,6 +6,9 @@ build:
 build/arm64:
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o nomad-driver-podman.arm64 -ldflags "-s -w" .
 
+clean:
+	-rm -f nomad-driver-podman.arm64 nomad-driver-podman
+
 .PHONY: changelogfmt
 changelogfmt:
 	@echo "--> Making [GH-xxxx] references clickable..."
