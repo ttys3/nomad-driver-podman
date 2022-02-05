@@ -447,11 +447,12 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	// `/sys/fs/cgroup/machine.slice/libpod-xxxxxxx.scope/container/memory.swap.max` will always be `max`,
 	// and the container never got killed by OOM killer
 	// see logic for podman cli https://github.com/containers/podman/blob/956664f65b5ebcc07a47c4d03c663c32733ed1ad/pkg/specgenutil/specgen.go#L133-L145
-	// `/libpod/containers/create` will not auto set swap = limit *2, but the compat api `/containers/create` will do
+	// `/libpod/containers/create` will not auto set swap >= limit, but the compat api `/containers/create` will do
 	// when cgroupv2: crun cannot set memory+swap limit less than the memory limit if swap is not -1
 	// so here, swap should >= limit
 	// see https://github.com/containers/crun/blob/71aa683c967322589685bf709096c266859019ad/src/libcrun/cgroup-resources.c#L664
-	swapLimit := *hard * 2
+	// here we set memory+swap = limit, so the final cgroup v2 max swap = 0, max memory = limit
+	swapLimit := *hard
 	createOpts.ContainerResourceConfig.ResourceLimits.Memory.Swap = &swapLimit
 
 	if driverConfig.MemorySwap != "" {
