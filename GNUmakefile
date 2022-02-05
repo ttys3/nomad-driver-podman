@@ -1,3 +1,10 @@
+.PHONY: build
+build:
+	CGO_ENABLED=0 go build -ldflags "-s -w" .
+
+.PHONY: build/arm64
+build/arm64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o nomad-driver-podman.arm64 -ldflags "-s -w" .
 
 .PHONY: changelogfmt
 changelogfmt:
@@ -17,5 +24,5 @@ deps: ## Install dependencies
 	@echo "==> Installing dependencies..."
 	cd tools && GOBIN=$(CURDIR)/build/bin go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.24.0
 	cd tools && GOBIN=$(CURDIR)/build/bin go get github.com/client9/misspell/cmd/misspell@v0.3.4
-	cd tools && GOBIN=$(CURDIR)/build/bin go get github.com/hashicorp/go-hclog/hclogvet@master 
+	cd tools && GOBIN=$(CURDIR)/build/bin go get github.com/hashicorp/go-hclog/hclogvet@master
 	cd tools && GOBIN=$(CURDIR)/build/bin go get gotest.tools/gotestsum
