@@ -38,9 +38,15 @@ func (c *API) ContainerStats(ctx context.Context, name string) (Stats, error) {
 	if err != nil {
 		return stats, err
 	}
+
+	// new version podman will return 200 code and empty body if the container is exited
+	if len(body) == 0 {
+		return stats, ContainerWrongState
+	}
+
 	err = json.Unmarshal(body, &stats)
 	if err != nil {
-		return stats, err
+		return stats, fmt.Errorf("json decode failed, err=%w body=%s uri=%s", err, string(body), fmt.Sprintf("/v1.0.0/libpod/containers/%s/stats?stream=false", name))
 	}
 
 	return stats, nil
