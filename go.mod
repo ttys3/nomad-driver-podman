@@ -13,13 +13,14 @@ replace (
 require (
 	github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e
 	github.com/containers/image/v5 v5.11.1
-	github.com/hashicorp/go-hclog v0.14.1
-	github.com/hashicorp/nomad v1.0.4-0.20210415141937-ee9bb3cc4f40
+	github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f // indirect
+	github.com/godbus/dbus v4.1.0+incompatible // indirect
+	github.com/hashicorp/go-hclog v1.2.2
+	github.com/hashicorp/nomad v1.2.13
 	github.com/hashicorp/nomad/api v0.0.0-20210415141937-ee9bb3cc4f40
-	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.13.0 // indirect
 	github.com/opencontainers/runtime-spec v1.0.3-0.20200929063507-e6143ca7d51d
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.8.0
 
 )
